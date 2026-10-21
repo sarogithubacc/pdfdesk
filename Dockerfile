@@ -2,8 +2,9 @@ FROM node:20-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ghostscript qpdf ocrmypdf \
     tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa tesseract-ocr-fra tesseract-ocr-deu tesseract-ocr-ita tesseract-ocr-por \
-    libreoffice-writer libreoffice-calc libreoffice-impress fonts-liberation fonts-dejavu-core python3-pdfplumber python3-openpyxl \
+    libreoffice-writer libreoffice-calc libreoffice-impress fonts-liberation fonts-dejavu-core python3-pip \
  && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir --break-system-packages pdfplumber openpyxl
 WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dependencies
