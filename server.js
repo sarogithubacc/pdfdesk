@@ -30,7 +30,7 @@ const job = fn => async (req, res) => {
   try {
     await acquire(); held = true;
     const out = await fn(req, f, dir);
-    res.set('X-Note', out.note || ''); res.type('pdf');
+    res.set('X-Note', out.note || ''); res.type(out.type || 'pdf');
     await new Promise((ok, no) => res.sendFile(out.file, e => e ? no(e) : ok()));
   } catch (e) {
     console.error('job failed', e.status || e.code, String(e.stderr || e.message).slice(0, 300).replace(/\n/g, ' '));
@@ -91,6 +91,26 @@ app.post('/api/unlock', up.single('file'), job(async (req, f, dir) => {
     if (e.code !== 3) throw e;
   }
   return { file: out };
+}));
+
+const conv = (infilter, target, filter) => job(async (req, f, dir) => {
+  if (!await isPdf(f.path)) throw bad('That is not a valid PDF.');
+  const inp = path.join(dir, 'input.pdf');
+  await fs.copyFile(f.path, inp);
+  await run('soffice', ['-env:UserInstallation=file://' + dir + '/profile', '--headless', '--norestore', '--infilter=' + infilter, '--convert-to', target + ':' + filter, '--outdir', dir, inp], { ...process.env, HOME: dir });
+  const out = path.join(dir, 'input.' + target);
+  await fs.access(out).catch(() => { throw bad('Conversion produced no output. Scanned PDFs need OCR first.'); });
+  return { file: out, type: target, note: 'Complex layouts may need touch-ups.' };
+});
+app.post('/api/pdf2word', up.single('file'), conv('writer_pdf_import', 'docx', 'MS Word 2007 XML'));
+app.post('/api/pdf2ppt', up.single('file'), conv('impress_pdf_import', 'pptx', 'Impress MS PowerPoint 2007 XML'));
+
+app.post('/api/pdf2excel', up.single('file'), job(async (req, f, dir) => {
+  if (!await isPdf(f.path)) throw bad('That is not a valid PDF.');
+  const out = path.join(dir, 'out.xlsx');
+  try { await run('python3', [path.join(__dirname, 'pdf2xlsx.py'), f.path, out]); }
+  catch (e) { if (e.code === 3) throw bad('No tables were found in this PDF. Scanned PDFs need OCR first.'); throw e; }
+  return { file: out, type: 'xlsx', note: 'Detected tables were placed one per sheet.' };
 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
