@@ -19,7 +19,9 @@ h1{text-align:center;margin:8px 0 4px}p.sub{text-align:center;color:var(--mu);ma
 input[type=file]{display:none}
 input[type=text],select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font:inherit;margin-top:6px}
 .f{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;margin-top:8px;font-size:14px;align-items:center}
-.f button{padding:2px 8px;margin-left:4px}
+.fn{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.fb{flex-shrink:0;display:flex;gap:6px}
+.f button{min-width:36px;height:34px;padding:0 8px}
 button{font:inherit;cursor:pointer;border:1px solid var(--bd);background:#fff;border-radius:6px}
 .go{width:100%;margin-top:16px;padding:13px;background:var(--ac);color:#fff;border:0;border-radius:8px;font-weight:700;font-size:17px}
 .go:disabled{opacity:.5}.err{color:#c62828;margin-top:10px}.ok{color:#1b7f3b;margin-top:10px}
@@ -40,6 +42,7 @@ footer{text-align:center;color:var(--mu);font-size:13px;padding:24px}
 const {PDFDocument,degrees}=PDFLib;
 const $=s=>document.querySelector(s),app=$('#app');
 let files=[],cur=null;
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const rngIn='<label>Pages (e.g. 1-3, 5, 8-10)<input type="text" id="r" placeholder="1-3, 5"></label>';
 function ranges(s,n){const r=s.split(',').map(x=>x.trim()).filter(Boolean).map(p=>{let[a,b]=p.split('-').map(Number);b=b||a;if(!(a>=1&&b<=n&&a<=b))throw Error('Invalid range: '+p+' (document has '+n+' pages)');return Array.from({length:b-a+1},(_,i)=>a-1+i)});if(!r.length)throw Error('Enter a page range.');return r}
 const load=async f=>PDFDocument.load(await f.arrayBuffer(),{ignoreEncryption:true});
@@ -94,7 +97,7 @@ function open_(k){cur=k;files=[];draw()}
 function draw(msg,cls){const t=T[cur],need=t.min||1;
  app.innerHTML=`<div class="panel"><button class="back" onclick="home()">← All tools</button><h2 style="margin:0 0 4px">${t.n}</h2><p style="color:var(--mu);margin:0 0 16px">${t.d}</p>
  <label class="drop" id="dz">Select ${t.multi?'files':'a file'} or drop here<input type="file" id="fi" accept="${t.acc}" ${t.multi?'multiple':''}></label>
- ${files.map((f,i)=>`<div class="f"><span>${f.name}</span><span>${t.multi&&files.length>1?`<button onclick="mv(${i},-1)">↑</button><button onclick="mv(${i},1)">↓</button>`:''}<button onclick="rm(${i})">✕</button></span></div>`).join('')}
+ ${files.map((f,i)=>`<div class="f"><span class="fn">${esc(f.name)}</span><span class="fb">${t.multi&&files.length>1?`<button onclick="mv(${i},-1)">↑</button><button onclick="mv(${i},1)">↓</button>`:''}<button onclick="rm(${i})">✕</button></span></div>`).join('')}
  ${t.opts||''}<button class="go" id="go" ${files.length<need?'disabled':''} onclick="run()">${t.n}</button><div class="${cls||''}">${msg||''}</div></div>`;
  const fi=$('#fi'),dz=$('#dz');fi.onchange=()=>add(fi.files);
  dz.ondragover=e=>{e.preventDefault();dz.classList.add('on')};dz.ondragleave=()=>dz.classList.remove('on');dz.ondrop=e=>{e.preventDefault();add(e.dataTransfer.files)}}
