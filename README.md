@@ -6,10 +6,37 @@ Self-hosted PDF toolkit with a clean web UI.
 - In-browser (files never leave your device): Merge, Split, Extract pages, Remove pages, Rotate, JPG/PNG to PDF
 - Server-side: Compress (Ghostscript), Word/PowerPoint/Excel to PDF and PDF to Word/PowerPoint (LibreOffice), PDF to Excel (pdfplumber, tables only), OCR (OCRmyPDF/Tesseract), Protect and Unlock (qpdf)
 
-## Run
+## Quick start
+
+Requirements: a Linux server or VM with Docker and the Docker Compose plugin (`docker compose version` should work). Allow about 2 GB of disk for the image.
+
+    git clone https://github.com/sarogithubacc/pdfdesk.git
+    cd pdfdesk
     docker compose up -d --build
 
-Open http://localhost:8080
+The first build takes several minutes. Then open `http://localhost:8080` (or `http://<server-ip>:8080` from another device; allow port 8080 in your firewall).
+
+Check that it is running:
+
+    docker compose ps
+    curl localhost:8080/api/health
+
+The health check should return `{"ok":true}`.
+
+### Update
+
+    cd pdfdesk
+    git pull
+    docker compose up -d --build
+
+### Stop, logs, remove
+
+    docker compose logs -f
+    docker compose down
+
+### Behind a reverse proxy (HTTPS)
+
+To serve it on your own domain, point your proxy at port 3000 inside the container (or 8080 on the host). With Pangolin or Traefik, attach the container to the proxy's Docker network in `docker-compose.yml` and remove the `ports:` section so nothing is exposed directly.
 
 ## Configuration (docker-compose.yml)
 | Variable | Default | Meaning |
