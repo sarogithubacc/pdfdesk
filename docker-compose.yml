@@ -1,0 +1,10 @@
+services:
+  pdfdesk:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:3000"
+    environment:
+      MAX_MB: "100"
+      CONCURRENCY: "2"
+      TIMEOUT_SEC: "180"
