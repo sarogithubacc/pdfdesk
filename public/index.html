@@ -25,6 +25,11 @@ button{font:inherit;cursor:pointer;border:1px solid var(--bd);background:#fff;bo
 .go:disabled{opacity:.5}.err{color:#c62828;margin-top:10px}.ok{color:#1b7f3b;margin-top:10px}
 .back{background:none;border:0;color:var(--ac);margin-bottom:12px;padding:0}
 label{display:block;margin-top:14px;font-weight:600;font-size:14px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 18px;width:max-content;max-width:100%;margin:0 auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;padding:9px 18px;border-radius:999px;font-weight:600;background:#fff;border:1px solid var(--bd);color:var(--tx)}
+.chip.on{background:var(--tx);color:#fff;border-color:var(--tx)}
+.card .ic{width:46px;height:46px;border-radius:10px;display:grid;place-items:center;background:#eef3ff;font-size:24px}
 footer{text-align:center;color:var(--mu);font-size:13px;padding:24px}
 </style></head><body>
 <header onclick="home()">PDF<span>Desk</span></header>
@@ -48,30 +53,43 @@ async function srv(ep,fields,name){const fd=new FormData();files.forEach(f=>fd.a
  note=r.headers.get('X-Note')||'';return[[await r.arrayBuffer(),name]]}
 const pwIn=l=>'<label>'+l+'<input type="password" id="pw" autocomplete="off"></label>';
 const T={
-merge:{i:'🔗',n:'Merge PDF',d:'Combine several PDFs into one, in your chosen order.',multi:1,acc:'.pdf',min:2,
+merge:{c:'Organize',i:'🔗',n:'Merge PDF',d:'Combine several PDFs into one, in your chosen order.',multi:1,acc:'.pdf',min:2,
  async run(){const o=await PDFDocument.create();for(const f of files){const d=await load(f);(await o.copyPages(d,d.getPageIndices())).forEach(p=>o.addPage(p))}return[[await o.save(),'merged.pdf']]}},
-split:{i:'✂️',n:'Split PDF',d:'Split into separate PDFs by page ranges.',acc:'.pdf',opts:rngIn,
+split:{c:'Organize',i:'✂️',n:'Split PDF',d:'Split into separate PDFs by page ranges.',acc:'.pdf',opts:rngIn,
  async run(){const d=await load(files[0]),rs=ranges($('#r').value,d.getPageCount()),out=[];for(const[k,r]of rs.entries())out.push([await(await sub(d,r)).save(),base(files[0])+'_part'+(k+1)+'.pdf']);return out}},
-extract:{i:'📄',n:'Extract pages',d:'Pull selected pages into a new PDF.',acc:'.pdf',opts:rngIn,
+extract:{c:'Organize',i:'📄',n:'Extract pages',d:'Pull selected pages into a new PDF.',acc:'.pdf',opts:rngIn,
  async run(){const d=await load(files[0]);return[[await(await sub(d,ranges($('#r').value,d.getPageCount()).flat())).save(),base(files[0])+'_extract.pdf']]}},
-remove:{i:'🗑️',n:'Remove pages',d:'Delete unwanted pages from a PDF.',acc:'.pdf',opts:rngIn,
+remove:{c:'Organize',i:'🗑️',n:'Remove pages',d:'Delete unwanted pages from a PDF.',acc:'.pdf',opts:rngIn,
  async run(){const d=await load(files[0]),n=d.getPageCount(),rm=new Set(ranges($('#r').value,n).flat()),keep=d.getPageIndices().filter(i=>!rm.has(i));if(!keep.length)throw Error('You cannot remove every page.');return[[await(await sub(d,keep)).save(),base(files[0])+'_removed.pdf']]}},
-rotate:{i:'🔄',n:'Rotate PDF',d:'Rotate all pages 90°, 180° or 270°.',acc:'.pdf',opts:'<label>Rotation<select id="a"><option value="90">90° clockwise</option><option value="180">180°</option><option value="270">90° counter-clockwise</option></select></label>',
+rotate:{c:'Edit',i:'🔄',n:'Rotate PDF',d:'Rotate all pages 90°, 180° or 270°.',acc:'.pdf',opts:'<label>Rotation<select id="a"><option value="90">90° clockwise</option><option value="180">180°</option><option value="270">90° counter-clockwise</option></select></label>',
  async run(){const d=await load(files[0]),a=+$('#a').value;d.getPages().forEach(p=>p.setRotation(degrees((p.getRotation().angle+a)%360)));return[[await d.save(),base(files[0])+'_rotated.pdf']]}},
-compress:{i:'🗜️',n:'Compress PDF',d:'Shrink the file size while keeping it readable.',srv:1,acc:'.pdf',opts:'<label>Compression level<select id="q"><option value="low">Low (best quality)</option><option value="recommended" selected>Recommended</option><option value="extreme">Extreme (smallest file)</option></select></label>',
+compress:{c:'Optimize',i:'🗜️',n:'Compress PDF',d:'Shrink the file size while keeping it readable.',srv:1,acc:'.pdf',opts:'<label>Compression level<select id="q"><option value="low">Low (best quality)</option><option value="recommended" selected>Recommended</option><option value="extreme">Extreme (smallest file)</option></select></label>',
  run:()=>srv('compress',{level:$('#q').value},base(files[0])+'_compressed.pdf')},
-office:{i:'📝',n:'Office to PDF',d:'Convert Word, Excel and PowerPoint files to PDF.',srv:1,acc:'.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf',
+word2pdf:{c:'Convert',i:'📝',n:'Word to PDF',d:'Convert DOC and DOCX files to PDF.',srv:1,acc:'.doc,.docx,.odt,.rtf',
  run:()=>srv('office',{},base(files[0])+'.pdf')},
-ocr:{i:'🔍',n:'OCR PDF',d:'Make scanned PDFs searchable and selectable.',srv:1,acc:'.pdf',opts:'<label>Document language<select id="l"><option value="eng">English</option><option value="spa">Spanish</option><option value="fra">French</option><option value="deu">German</option><option value="ita">Italian</option><option value="por">Portuguese</option></select></label>',
+ppt2pdf:{c:'Convert',i:'📽️',n:'PowerPoint to PDF',d:'Convert PPT and PPTX slideshows to PDF.',srv:1,acc:'.ppt,.pptx,.odp',
+ run:()=>srv('office',{},base(files[0])+'.pdf')},
+xls2pdf:{c:'Convert',i:'📊',n:'Excel to PDF',d:'Convert XLS and XLSX spreadsheets to PDF.',srv:1,acc:'.xls,.xlsx,.ods',
+ run:()=>srv('office',{},base(files[0])+'.pdf')},
+pdf2word:{c:'Convert',i:'📘',n:'PDF to Word',d:'Convert a text-based PDF to an editable DOCX.',srv:1,acc:'.pdf',
+ run:()=>srv('pdf2word',{},base(files[0])+'.docx')},
+pdf2ppt:{c:'Convert',i:'📙',n:'PDF to PowerPoint',d:'Turn a PDF into an editable PPTX slideshow.',srv:1,acc:'.pdf',
+ run:()=>srv('pdf2ppt',{},base(files[0])+'.pptx')},
+pdf2excel:{c:'Convert',i:'📗',n:'PDF to Excel',d:'Extract tables from a PDF into XLSX sheets.',srv:1,acc:'.pdf',
+ run:()=>srv('pdf2excel',{},base(files[0])+'.xlsx')},
+ocr:{c:'Optimize',i:'🔍',n:'OCR PDF',d:'Make scanned PDFs searchable and selectable.',srv:1,acc:'.pdf',opts:'<label>Document language<select id="l"><option value="eng">English</option><option value="spa">Spanish</option><option value="fra">French</option><option value="deu">German</option><option value="ita">Italian</option><option value="por">Portuguese</option></select></label>',
  run:()=>srv('ocr',{lang:$('#l').value},base(files[0])+'_ocr.pdf')},
-protect:{i:'🔒',n:'Protect PDF',d:'Encrypt a PDF with a password (AES-256).',srv:1,acc:'.pdf',opts:pwIn('Password'),
+protect:{c:'Security',i:'🔒',n:'Protect PDF',d:'Encrypt a PDF with a password (AES-256).',srv:1,acc:'.pdf',opts:pwIn('Password'),
  run:()=>{if(!$('#pw').value)throw Error('Enter a password.');return srv('protect',{password:$('#pw').value},base(files[0])+'_protected.pdf')}},
-unlock:{i:'🔓',n:'Unlock PDF',d:'Remove a password or editing restrictions.',srv:1,acc:'.pdf',opts:pwIn('Password (leave blank if it only has editing restrictions)'),
+unlock:{c:'Security',i:'🔓',n:'Unlock PDF',d:'Remove a password or editing restrictions.',srv:1,acc:'.pdf',opts:pwIn('Password (leave blank if it only has editing restrictions)'),
  run:()=>srv('unlock',{password:$('#pw').value},base(files[0])+'_unlocked.pdf')},
-img:{i:'🖼️',n:'JPG/PNG to PDF',d:'Turn images into a PDF, one per page.',multi:1,acc:'.jpg,.jpeg,.png',min:1,
+img:{c:'Convert',i:'🖼️',n:'JPG/PNG to PDF',d:'Turn images into a PDF, one per page.',multi:1,acc:'.jpg,.jpeg,.png',min:1,
  async run(){const o=await PDFDocument.create();for(const f of files){const b=await f.arrayBuffer(),png=/png$/i.test(f.name)||f.type==='image/png',im=png?await o.embedPng(b):await o.embedJpg(b);o.addPage([im.width,im.height]).drawImage(im,{x:0,y:0,width:im.width,height:im.height})}return[[await o.save(),'images.pdf']]}}
 };
-function home(){cur=null;files=[];app.innerHTML='<h1>Every PDF tool you need</h1><p class="sub">Free, private, and runs entirely in your browser.</p><div class="grid">'+Object.entries(T).map(([k,t])=>`<div class="card" style="${t.srv&&!SRV?'opacity:.45;pointer-events:none':''}" onclick="open_('${k}')"><div class="ic">${t.i}</div><b>${t.n}</b><small>${t.d}${t.srv&&!SRV?' (needs the server backend)':''}</small></div>`).join('')+'</div>'}
+let cat='All';
+const CATS=['All','Organize','Optimize','Convert','Edit','Security'];
+function setCat(c){cat=c;home()}
+function home(){cur=null;files=[];app.innerHTML='<h1>Every PDF tool you need</h1><p class="sub">Free and runs on your own server.</p><div class="chips">'+CATS.map(c=>`<button class="chip${c===cat?' on':''}" onclick="setCat('${c}')">${c}</button>`).join('')+'</div><div class="grid">'+Object.entries(T).filter(([k,t])=>cat==='All'||t.c===cat).map(([k,t])=>`<div class="card" style="${t.srv&&!SRV?'opacity:.45;pointer-events:none':''}" onclick="open_('${k}')"><div class="ic">${t.i}</div><b>${t.n}</b><small>${t.d}${t.srv&&!SRV?' (needs the server backend)':''}</small></div>`).join('')+'</div>'}
 function open_(k){cur=k;files=[];draw()}
 function draw(msg,cls){const t=T[cur],need=t.min||1;
  app.innerHTML=`<div class="panel"><button class="back" onclick="home()">← All tools</button><h2 style="margin:0 0 4px">${t.n}</h2><p style="color:var(--mu);margin:0 0 16px">${t.d}</p>
@@ -84,8 +102,11 @@ function add(l){const t=T[cur],ok=[...l].filter(f=>new RegExp('('+t.acc.replace(
 function rm(i){files.splice(i,1);draw()}
 function mv(i,d){const j=i+d;if(j<0||j>=files.length)return;[files[i],files[j]]=[files[j],files[i]];draw()}
 async function run(){const b=$('#go');b.disabled=true;b.textContent='Processing…';
- try{const out=await T[cur].run();for(const[bytes,name]of out){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4e3)}
+ try{const out=await T[cur].run();for(const[bytes,name]of out){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes]));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4e3)}
  const r=$('#r')?.value;draw('Done! Your download has started.'+(note?' '+note:''),'ok');if($('#r'))$('#r').value=r}
  catch(e){b.disabled=false;b.textContent=T[cur].n;$('.panel').lastElementChild.className='err';$('.panel').lastElementChild.textContent='Error: '+e.message}}
+home();
+</script></body></html>
+ch(e){b.disabled=false;b.textContent=T[cur].n;$('.panel').lastElementChild.className='err';$('.panel').lastElementChild.textContent='Error: '+e.message}}
 home();
 </script></body></html>
