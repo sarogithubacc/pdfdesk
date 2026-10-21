@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PDFDesk – Free PDF tools</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--tx:#1d2433;--mu:#667085;--ac:#2f6df6;--bd:#e3e7ef}
+*{box-sizing:border-box}body{margin:0;font:16px system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+header{background:var(--card);border-bottom:1px solid var(--bd);padding:14px 20px;font-weight:700;font-size:20px;cursor:pointer}
+header span{color:var(--ac)}
+main{max-width:960px;margin:0 auto;padding:24px 16px}
+h1{text-align:center;margin:8px 0 4px}p.sub{text-align:center;color:var(--mu);margin:0 0 24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:18px;cursor:pointer;transition:.15s}
+.card:hover{box-shadow:0 4px 16px #0001;transform:translateY(-2px)}
+.card b{display:block;margin:6px 0 4px}.card small{color:var(--mu)}.ic{font-size:28px}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:22px;max-width:640px;margin:0 auto}
+.drop{display:block;border:2px dashed var(--ac);border-radius:12px;padding:32px;text-align:center;cursor:pointer;color:var(--ac);font-weight:600}
+.drop.on{background:#2f6df60f}
+input[type=file]{display:none}
+input[type=text],select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font:inherit;margin-top:6px}
+.f{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;margin-top:8px;font-size:14px;align-items:center}
+.f button{padding:2px 8px;margin-left:4px}
+button{font:inherit;cursor:pointer;border:1px solid var(--bd);background:#fff;border-radius:6px}
+.go{width:100%;margin-top:16px;padding:13px;background:var(--ac);color:#fff;border:0;border-radius:8px;font-weight:700;font-size:17px}
+.go:disabled{opacity:.5}.err{color:#c62828;margin-top:10px}.ok{color:#1b7f3b;margin-top:10px}
+.back{background:none;border:0;color:var(--ac);margin-bottom:12px;padding:0}
+label{display:block;margin-top:14px;font-weight:600;font-size:14px}
+footer{text-align:center;color:var(--mu);font-size:13px;padding:24px}
+</style></head><body>
+<header onclick="home()">PDF<span>Desk</span></header>
+<main id="app"></main>
+<footer>Your files are deleted from the server right after processing.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+const {PDFDocument,degrees}=PDFLib;
+const $=s=>document.querySelector(s),app=$('#app');
+let files=[],cur=null;
+const rngIn='<label>Pages (e.g. 1-3, 5, 8-10)<input type="text" id="r" placeholder="1-3, 5"></label>';
+function ranges(s,n){const r=s.split(',').map(x=>x.trim()).filter(Boolean).map(p=>{let[a,b]=p.split('-').map(Number);b=b||a;if(!(a>=1&&b<=n&&a<=b))throw Error('Invalid range: '+p+' (document has '+n+' pages)');return Array.from({length:b-a+1},(_,i)=>a-1+i)});if(!r.length)throw Error('Enter a page range.');return r}
+const load=async f=>PDFDocument.load(await f.arrayBuffer(),{ignoreEncryption:true});
+async function sub(d,idx){const o=await PDFDocument.create();(await o.copyPages(d,idx)).forEach(p=>o.addPage(p));return o}
+const base=f=>f.name.replace(/\.[^.]+$/,'');
+let SRV=false,note='';
+fetch('api/health').then(r=>{SRV=r.ok}).catch(()=>{}).finally(()=>{if(!cur)home()});
+async function srv(ep,fields,name){const fd=new FormData();files.forEach(f=>fd.append('file',f));for(const k in fields)fd.append(k,fields[k]);
+ const r=await fetch('api/'+ep,{method:'POST',body:fd});
+ if(!r.ok){let m='Server error';try{m=(await r.json()).error||m}catch(e){}throw Error(m)}
+ note=r.headers.get('X-Note')||'';return[[await r.arrayBuffer(),name]]}
+const pwIn=l=>'<label>'+l+'<input type="password" id="pw" autocomplete="off"></label>';
+const T={
+merge:{i:'🔗',n:'Merge PDF',d:'Combine several PDFs into one, in your chosen order.',multi:1,acc:'.pdf',min:2,
+ async run(){const o=await PDFDocument.create();for(const f of files){const d=await load(f);(await o.copyPages(d,d.getPageIndices())).forEach(p=>o.addPage(p))}return[[await o.save(),'merged.pdf']]}},
+split:{i:'✂️',n:'Split PDF',d:'Split into separate PDFs by page ranges.',acc:'.pdf',opts:rngIn,
+ async run(){const d=await load(files[0]),rs=ranges($('#r').value,d.getPageCount()),out=[];for(const[k,r]of rs.entries())out.push([await(await sub(d,r)).save(),base(files[0])+'_part'+(k+1)+'.pdf']);return out}},
+extract:{i:'📄',n:'Extract pages',d:'Pull selected pages into a new PDF.',acc:'.pdf',opts:rngIn,
+ async run(){const d=await load(files[0]);return[[await(await sub(d,ranges($('#r').value,d.getPageCount()).flat())).save(),base(files[0])+'_extract.pdf']]}},
+remove:{i:'🗑️',n:'Remove pages',d:'Delete unwanted pages from a PDF.',acc:'.pdf',opts:rngIn,
+ async run(){const d=await load(files[0]),n=d.getPageCount(),rm=new Set(ranges($('#r').value,n).flat()),keep=d.getPageIndices().filter(i=>!rm.has(i));if(!keep.length)throw Error('You cannot remove every page.');return[[await(await sub(d,keep)).save(),base(files[0])+'_removed.pdf']]}},
+rotate:{i:'🔄',n:'Rotate PDF',d:'Rotate all pages 90°, 180° or 270°.',acc:'.pdf',opts:'<label>Rotation<select id="a"><option value="90">90° clockwise</option><option value="180">180°</option><option value="270">90° counter-clockwise</option></select></label>',
+ async run(){const d=await load(files[0]),a=+$('#a').value;d.getPages().forEach(p=>p.setRotation(degrees((p.getRotation().angle+a)%360)));return[[await d.save(),base(files[0])+'_rotated.pdf']]}},
+compress:{i:'🗜️',n:'Compress PDF',d:'Shrink the file size while keeping it readable.',srv:1,acc:'.pdf',opts:'<label>Compression level<select id="q"><option value="low">Low (best quality)</option><option value="recommended" selected>Recommended</option><option value="extreme">Extreme (smallest file)</option></select></label>',
+ run:()=>srv('compress',{level:$('#q').value},base(files[0])+'_compressed.pdf')},
+office:{i:'📝',n:'Office to PDF',d:'Convert Word, Excel and PowerPoint files to PDF.',srv:1,acc:'.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf',
+ run:()=>srv('office',{},base(files[0])+'.pdf')},
+ocr:{i:'🔍',n:'OCR PDF',d:'Make scanned PDFs searchable and selectable.',srv:1,acc:'.pdf',opts:'<label>Document language<select id="l"><option value="eng">English</option><option value="spa">Spanish</option><option value="fra">French</option><option value="deu">German</option><option value="ita">Italian</option><option value="por">Portuguese</option></select></label>',
+ run:()=>srv('ocr',{lang:$('#l').value},base(files[0])+'_ocr.pdf')},
+protect:{i:'🔒',n:'Protect PDF',d:'Encrypt a PDF with a password (AES-256).',srv:1,acc:'.pdf',opts:pwIn('Password'),
+ run:()=>{if(!$('#pw').value)throw Error('Enter a password.');return srv('protect',{password:$('#pw').value},base(files[0])+'_protected.pdf')}},
+unlock:{i:'🔓',n:'Unlock PDF',d:'Remove a password or editing restrictions.',srv:1,acc:'.pdf',opts:pwIn('Password (leave blank if it only has editing restrictions)'),
+ run:()=>srv('unlock',{password:$('#pw').value},base(files[0])+'_unlocked.pdf')},
+img:{i:'🖼️',n:'JPG/PNG to PDF',d:'Turn images into a PDF, one per page.',multi:1,acc:'.jpg,.jpeg,.png',min:1,
+ async run(){const o=await PDFDocument.create();for(const f of files){const b=await f.arrayBuffer(),png=/png$/i.test(f.name)||f.type==='image/png',im=png?await o.embedPng(b):await o.embedJpg(b);o.addPage([im.width,im.height]).drawImage(im,{x:0,y:0,width:im.width,height:im.height})}return[[await o.save(),'images.pdf']]}}
+};
+function home(){cur=null;files=[];app.innerHTML='<h1>Every PDF tool you need</h1><p class="sub">Free, private, and runs entirely in your browser.</p><div class="grid">'+Object.entries(T).map(([k,t])=>`<div class="card" style="${t.srv&&!SRV?'opacity:.45;pointer-events:none':''}" onclick="open_('${k}')"><div class="ic">${t.i}</div><b>${t.n}</b><small>${t.d}${t.srv&&!SRV?' (needs the server backend)':''}</small></div>`).join('')+'</div>'}
+function open_(k){cur=k;files=[];draw()}
+function draw(msg,cls){const t=T[cur],need=t.min||1;
+ app.innerHTML=`<div class="panel"><button class="back" onclick="home()">← All tools</button><h2 style="margin:0 0 4px">${t.n}</h2><p style="color:var(--mu);margin:0 0 16px">${t.d}</p>
+ <label class="drop" id="dz">Select ${t.multi?'files':'a file'} or drop here<input type="file" id="fi" accept="${t.acc}" ${t.multi?'multiple':''}></label>
+ ${files.map((f,i)=>`<div class="f"><span>${f.name}</span><span>${t.multi&&files.length>1?`<button onclick="mv(${i},-1)">↑</button><button onclick="mv(${i},1)">↓</button>`:''}<button onclick="rm(${i})">✕</button></span></div>`).join('')}
+ ${t.opts||''}<button class="go" id="go" ${files.length<need?'disabled':''} onclick="run()">${t.n}</button><div class="${cls||''}">${msg||''}</div></div>`;
+ const fi=$('#fi'),dz=$('#dz');fi.onchange=()=>add(fi.files);
+ dz.ondragover=e=>{e.preventDefault();dz.classList.add('on')};dz.ondragleave=()=>dz.classList.remove('on');dz.ondrop=e=>{e.preventDefault();add(e.dataTransfer.files)}}
+function add(l){const t=T[cur],ok=[...l].filter(f=>new RegExp('('+t.acc.replace(/\./g,'\\.').replace(/,/g,'|')+')$','i').test(f.name));const keepR=$('#r')?.value;files=t.multi?files.concat(ok):ok.slice(0,1);draw(ok.length<l.length?'Some files were skipped (wrong type).':'', 'err');if(keepR&&$('#r'))$('#r').value=keepR}
+function rm(i){files.splice(i,1);draw()}
+function mv(i,d){const j=i+d;if(j<0||j>=files.length)return;[files[i],files[j]]=[files[j],files[i]];draw()}
+async function run(){const b=$('#go');b.disabled=true;b.textContent='Processing…';
+ try{const out=await T[cur].run();for(const[bytes,name]of out){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4e3)}
+ const r=$('#r')?.value;draw('Done! Your download has started.'+(note?' '+note:''),'ok');if($('#r'))$('#r').value=r}
+ catch(e){b.disabled=false;b.textContent=T[cur].n;$('.panel').lastElementChild.className='err';$('.panel').lastElementChild.textContent='Error: '+e.message}}
+home();
+</script></body></html>
