@@ -4,7 +4,7 @@ Self-hosted PDF toolkit with a clean web UI.
 
 ## Tools
 - In-browser (files never leave your device): Merge, Split, Extract pages, Remove pages, Rotate, JPG/PNG to PDF
-- Server-side: Compress (Ghostscript), Office to PDF (LibreOffice), OCR (OCRmyPDF/Tesseract), Protect and Unlock (qpdf)
+- Server-side: Compress (Ghostscript), Word/PowerPoint/Excel to PDF and PDF to Word/PowerPoint (LibreOffice), PDF to Excel (pdfplumber, tables only), OCR (OCRmyPDF/Tesseract), Protect and Unlock (qpdf)
 
 ## Run
     docker compose up -d --build
